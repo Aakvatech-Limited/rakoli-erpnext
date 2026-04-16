@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "RAK-LOAN-.YYYY.-.#####",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "loan_amount",
+  "instalment_amount",
+  "instalment_frequency",
+  "total_instalments",
+  "loan_status",
+  "column_break_1",
+  "approved_at",
+  "repayment_start_date",
+  "section_break_bank",
+  "previous_bank_name",
+  "previous_bank_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "fetch_from": "employee.employee_name",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loan_amount",
+   "fieldtype": "Currency",
+   "label": "Loan Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "instalment_amount",
+   "fieldtype": "Currency",
+   "label": "Instalment Amount"
+  },
+  {
+   "fieldname": "instalment_frequency",
+   "fieldtype": "Select",
+   "label": "Instalment Frequency",
+   "options": "\nmonthly"
+  },
+  {
+   "fieldname": "total_instalments",
+   "fieldtype": "Int",
+   "label": "Total Instalments"
+  },
+  {
+   "default": "received",
+   "fieldname": "loan_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Loan Status",
+   "options": "\nreceived\napproved\nactive\npaid"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Approved At"
+  },
+  {
+   "fieldname": "repayment_start_date",
+   "fieldtype": "Date",
+   "label": "Repayment Start Date"
+  },
+  {
+   "collapsible": 1,
+   "collapsed_by_default": 1,
+   "fieldname": "section_break_bank",
+   "fieldtype": "Section Break",
+   "label": "Previous Bank Details (Before RMFB Rerouting)"
+  },
+  {
+   "fieldname": "previous_bank_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Previous Bank Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "previous_bank_account",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Previous Bank Account",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "module": "Rakoli Intergration",
+ "name": "Rakoli Loan",
+ "naming_rule": "Expression (old style)",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

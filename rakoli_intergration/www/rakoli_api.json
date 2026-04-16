@@ -1,0 +1,545 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Rakoli ERPNext Integration API",
+    "description": "API specification for Rakoli Systems to integrate with ERPNext for salary-backed loans via Radiance Microfinance Bank (RMFB).\n\nAll endpoints require token-based authentication. Rakoli authenticates using an API Key and Secret generated within ERPNext.\n\n**Important:** Frappe (ERPNext's framework) routes all `/api/method/` calls via POST. Even endpoints documented here as logically GET operations should be called via POST with parameters in the request body, or via GET with query parameters.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Aakvatech Limited",
+      "email": "info@aakvatech.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "",
+      "description": "Current ERPNext Instance (same origin)"
+    }
+  ],
+  "security": [
+    {},
+    {
+      "TokenAuth": []
+    }
+  ],
+  "paths": {
+    "/api/method/rakoli_intergration.api.get_employee": {
+      "get": {
+        "operationId": "getEmployee",
+        "summary": "API 1 — Fetch Employee Data",
+        "description": "Fetch employee employment and payroll data for Rakoli loan eligibility assessment. Returns employment details, salary information, and current bank account.\n\nThis endpoint returns employment and payroll data only. Personal identity data (NIDA, national ID) is not returned. KYC identity verification is performed by Rakoli via NIDA independently.",
+        "tags": ["Employee"],
+        "parameters": [
+          {
+            "name": "employee_number",
+            "in": "query",
+            "required": true,
+            "description": "The unique Employee Number as used in ERPNext (e.g., HR-EMP-00001 or TPA-2019-04821)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Employee data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "employee_number": "TPA-2019-04821",
+                    "full_name": "Amina Khamis Juma",
+                    "department": "Port Operations",
+                    "company": "Tanzania Ports Authority",
+                    "contract_type": "Permanent",
+                    "contract_start_date": "2019-03-01",
+                    "contract_end_date": null,
+                    "employment_status": "Active",
+                    "gross_salary": 1800000,
+                    "net_salary": 1450000,
+                    "bank_name": "CRDB Bank",
+                    "bank_account_number": "0150123456789"
+                  },
+                  "timestamp": "2026-03-15T10:30:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Employee not found in ERPNext",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "success": false,
+                  "error_code": "EMPLOYEE_NOT_FOUND",
+                  "error_message": "No employee found with number TPA-2019-99999",
+                  "field": "employee_number",
+                  "timestamp": "2026-03-15T10:30:00Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Employee exists but is not Active (e.g., terminated, on leave)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "success": false,
+                  "error_code": "EMPLOYEE_NOT_ACTIVE",
+                  "error_message": "Employee TPA-2019-04821 has status 'Left'. Only Active employees are eligible.",
+                  "field": "employment_status",
+                  "employment_status": "Left",
+                  "timestamp": "2026-03-15T10:30:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/method/rakoli_intergration.api.update_employee_bank": {
+      "post": {
+        "operationId": "updateEmployeeBank",
+        "summary": "API 2 — Update Employee Bank Account",
+        "description": "Update the employee's bank account on record in ERPNext after a new RMFB account has been created. This ensures salary is routed to the RMFB account from the next payroll run.\n\nThe response includes the previous bank account details so Rakoli can store them for reversal when the loan is fully repaid.",
+        "tags": ["Employee"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBankRequest"
+              },
+              "example": {
+                "employee_number": "TPA-2019-04821",
+                "bank_name": "Radiance Microfinance Bank",
+                "bank_account_number": "RMF-00123456",
+                "updated_at": "2026-03-15T10:30:00Z",
+                "updated_by": "Rakoli Systems",
+                "reason": "Employee consented to RMFB account for salary loan repayment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bank account updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateBankResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "employee_number": "TPA-2019-04821",
+                    "previous_bank_name": "CRDB Bank",
+                    "previous_bank_account_number": "0150123456789",
+                    "new_bank_name": "Radiance Microfinance Bank",
+                    "new_bank_account_number": "RMF-00123456",
+                    "updated_at": "2026-03-15T10:30:00Z"
+                  },
+                  "timestamp": "2026-03-15T10:30:00Z"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/api/method/rakoli_intergration.api.record_loan": {
+      "post": {
+        "operationId": "recordLoan",
+        "summary": "API 3 — Record Loan in ERPNext",
+        "description": "Record an RMFB-approved salary loan in ERPNext for employer-side record-keeping and audit purposes.\n\nERPNext's role is record-keeping only — it does not manage repayment deductions.\n\nIf `rakoli_loan_id` is provided, ERPNext updates that existing record. If not, ERPNext creates a new Rakoli Loan and returns its internal ID.",
+        "tags": ["Loan"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordLoanRequest"
+              },
+              "example": {
+                "employee_number": "TPA-2019-04821",
+                "loan_amount": 1500000,
+                "rakoli_loan_id": "RAK-LOAN-2026-00001",
+                "approved_at": "2026-03-15T11:00:00Z",
+                "repayment_start_date": "2026-04-01",
+                "instalment_amount": 145000,
+                "instalment_frequency": "monthly",
+                "total_instalments": 12,
+                "loan_status": "received"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Loan record created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordLoanResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "rakoli_loan_id": "RAK-LOAN-2026-00001",
+                    "erpnext_loan_id": "RAK-LOAN-2026-00001",
+                    "employee_number": "TPA-2019-04821",
+                    "recorded_at": "2026-03-15T11:02:00Z"
+                  },
+                  "timestamp": "2026-03-15T11:02:00Z"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Existing loan record updated (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordLoanResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/Unprocessable" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/method/rakoli_intergration.api.check_loan_status": {
+      "get": {
+        "operationId": "checkLoanStatus",
+        "summary": "API 4 — Check Employee Loan Status",
+        "description": "Check whether an employee already has an active Rakoli loan recorded in ERPNext. This prevents duplicate loans being issued to the same employee.\n\n**Important:** This only checks loans created via the Rakoli integration (`is_rakoli_loan = 1`). Regular company loans are not returned.",
+        "tags": ["Loan"],
+        "parameters": [
+          {
+            "name": "employee_number",
+            "in": "query",
+            "required": true,
+            "description": "The unique Employee Number as used in ERPNext",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan status check completed",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "active_loan": {
+                    "summary": "Active loan found",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "employee_number": "TPA-2019-04821",
+                        "has_active_loan": true,
+                        "active_loans": [
+                          {
+                            "rakoli_loan_id": "RAK-LOAN-2026-00001",
+                            "erpnext_loan_id": "RAK-LOAN-2026-00001",
+                            "loan_amount": 1500000,
+                            "instalment_amount": 145000,
+                            "total_instalments": 12,
+                            "loan_status": "approved"
+                          }
+                        ]
+                      },
+                      "timestamp": "2026-03-15T10:30:00Z"
+                    }
+                  },
+                  "no_loan": {
+                    "summary": "No active loan",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "employee_number": "TPA-2019-04821",
+                        "has_active_loan": false
+                      },
+                      "timestamp": "2026-03-15T10:30:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/method/rakoli_intergration.api.update_loan_status": {
+      "post": {
+        "operationId": "updateLoanStatus",
+        "summary": "API 5 — Update Loan Status",
+        "description": "Update the status of an existing Rakoli loan record in ERPNext as the loan progresses through its lifecycle.\n\nERPNext logs each status transition with a timestamp and source for audit trail purposes.",
+        "tags": ["Loan"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLoanStatusRequest"
+              },
+              "example": {
+                "rakoli_loan_id": "RAK-LOAN-2026-00001",
+                "loan_status": "approved",
+                "updated_at": "2026-03-15T12:00:00Z",
+                "updated_by": "Rakoli Systems",
+                "note": "Loan funds disbursed to employee RMFB account RMF-00123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loan status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateLoanStatusResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "rakoli_loan_id": "RAK-LOAN-2026-00001",
+                    "erpnext_loan_id": "RAK-LOAN-2026-00001",
+                    "employee_number": "TPA-2019-04821",
+                    "previous_status": "received",
+                    "current_status": "approved",
+                    "updated_at": "2026-03-15T12:00:00Z"
+                  },
+                  "timestamp": "2026-03-15T12:00:00Z"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "TokenAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Token-based authentication. Format: `token {api_key}:{api_secret}`\n\nThe API Key and Secret are generated within ERPNext for the Rakoli integration user."
+      }
+    },
+    "schemas": {
+      "EmployeeResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "employee_number": { "type": "string", "description": "Unique Employee Number" },
+              "full_name": { "type": "string", "description": "Employee's legal full name" },
+              "department": { "type": "string", "description": "Current department" },
+              "company": { "type": "string", "description": "Employer company name" },
+              "contract_type": { "type": "string", "description": "Permanent, Contract, Casual, etc." },
+              "contract_start_date": { "type": "string", "format": "date", "nullable": true },
+              "contract_end_date": { "type": "string", "format": "date", "nullable": true },
+              "employment_status": { "type": "string", "enum": ["Active", "Inactive", "Suspended", "Left"] },
+              "gross_salary": { "type": "number", "description": "Gross monthly salary in TZS" },
+              "net_salary": { "type": "number", "nullable": true, "description": "Net monthly salary in TZS" },
+              "bank_name": { "type": "string", "nullable": true },
+              "bank_account_number": { "type": "string", "nullable": true }
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UpdateBankRequest": {
+        "type": "object",
+        "required": ["employee_number", "bank_name", "bank_account_number"],
+        "properties": {
+          "employee_number": { "type": "string" },
+          "bank_name": { "type": "string", "description": "New bank name (e.g., Radiance Microfinance Bank)" },
+          "bank_account_number": { "type": "string", "description": "New bank account number" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "updated_by": { "type": "string", "description": "Source of update (e.g., Rakoli Systems)" },
+          "reason": { "type": "string", "description": "Reason for the bank account change" }
+        }
+      },
+      "UpdateBankResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "employee_number": { "type": "string" },
+              "previous_bank_name": { "type": "string" },
+              "previous_bank_account_number": { "type": "string" },
+              "new_bank_name": { "type": "string" },
+              "new_bank_account_number": { "type": "string" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecordLoanRequest": {
+        "type": "object",
+        "required": ["employee_number", "loan_amount"],
+        "properties": {
+          "employee_number": { "type": "string" },
+          "loan_amount": { "type": "integer", "description": "Total approved loan amount in TZS" },
+          "rakoli_loan_id": { "type": "string", "description": "ERPNext internal Rakoli Loan ID. Omit to create a new loan; include to update an existing one." },
+          "approved_at": { "type": "string", "format": "date-time" },
+          "repayment_start_date": { "type": "string", "format": "date" },
+          "instalment_amount": { "type": "integer", "description": "Monthly repayment instalment in TZS" },
+          "instalment_frequency": { "type": "string", "enum": ["monthly"], "default": "monthly" },
+          "total_instalments": { "type": "integer", "description": "Total number of monthly instalments" },
+          "loan_status": { "type": "string", "enum": ["received", "approved", "active", "paid"], "default": "received" }
+        }
+      },
+      "RecordLoanResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "rakoli_loan_id": { "type": "string", "description": "ERPNext's internal Rakoli Loan ID" },
+              "erpnext_loan_id": { "type": "string", "description": "ERPNext's internal loan ID" },
+              "employee_number": { "type": "string" },
+              "recorded_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UpdateLoanStatusRequest": {
+        "type": "object",
+        "required": ["rakoli_loan_id", "loan_status"],
+        "properties": {
+          "rakoli_loan_id": { "type": "string" },
+          "loan_status": { "type": "string", "enum": ["received", "approved", "active", "paid"], "description": "received = loan application received by RMFB; approved = loan approved; active = loan currently running; paid = loan fully repaid" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "updated_by": { "type": "string" },
+          "note": { "type": "string", "description": "Optional note about the status change" }
+        }
+      },
+      "UpdateLoanStatusResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "rakoli_loan_id": { "type": "string" },
+              "erpnext_loan_id": { "type": "string" },
+              "employee_number": { "type": "string" },
+              "previous_status": { "type": "string" },
+              "current_status": { "type": "string" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error_code": { "type": "string", "description": "Machine-readable error code" },
+          "error_message": { "type": "string", "description": "Human-readable error description" },
+          "field": { "type": "string", "nullable": true, "description": "The field that caused the error" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid payload or missing required fields",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "success": false,
+              "error_code": "MISSING_FIELDS",
+              "error_message": "employee_number is required",
+              "field": "employee_number",
+              "timestamp": "2026-03-15T10:30:00Z"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found (employee or loan)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "success": false,
+              "error_code": "EMPLOYEE_NOT_FOUND",
+              "error_message": "No employee found with number TPA-2019-99999",
+              "field": "employee_number",
+              "timestamp": "2026-03-15T10:30:00Z"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "Business rule prevents the action (e.g., inactive employee)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "success": false,
+              "error_code": "EMPLOYEE_NOT_ACTIVE",
+              "error_message": "Employee has status 'Left'. Only Active employees are eligible.",
+              "field": "employment_status",
+              "timestamp": "2026-03-15T10:30:00Z"
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Internal ERPNext error. Rakoli should retry up to 3 times.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": {
+              "success": false,
+              "error_code": "LOAN_CREATION_FAILED",
+              "error_message": "Internal error during loan creation",
+              "timestamp": "2026-03-15T10:30:00Z"
+            }
+          }
+        }
+      }
+    }
+  }
+}

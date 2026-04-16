@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rakoli ERPNext Integration API</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+    <style>
+        html { box-sizing: border-box; overflow-y: scroll; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body { margin: 0; background: #fafafa; }
+        .topbar { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script>
+        window.onload = function() {
+            // Fetch the OpenAPI spec from the Frappe whitelisted endpoint
+            fetch("/api/method/rakoli_intergration.api.get_openapi_spec")
+                .then(response => response.json())
+                .then(data => {
+                    // Frappe wraps the response in { "message": ... }
+                    var spec = data.message || data;
+                    SwaggerUIBundle({
+                        spec: spec,
+                        dom_id: '#swagger-ui',
+                        deepLinking: true,
+                        presets: [
+                            SwaggerUIBundle.presets.apis,
+                            SwaggerUIBundle.SwaggerUIStandalonePreset
+                        ],
+                        layout: "BaseLayout",
+                        defaultModelsExpandDepth: 1,
+                        defaultModelExpandDepth: 1,
+                        docExpansion: "list",
+                        filter: true,
+                        showExtensions: true,
+                        showCommonExtensions: true,
+                        tryItOutEnabled: true,
+                        requestInterceptor: (request) => {
+                            const getCookie = (name) => {
+                                const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
+                                return match ? decodeURIComponent(match[2]) : null;
+                            };
+                            const csrf = getCookie('csrf_token');
+                            if (csrf) {
+                                request.headers['X-Frappe-CSRF-Token'] = csrf;
+                            }
+                            return request;
+                        }
+                    });
+                })
+                .catch(err => {
+                    document.getElementById('swagger-ui').innerHTML =
+                        '<div style="padding:40px;text-align:center;">' +
+                        '<h2>Failed to load API spec</h2>' +
+                        '<p>' + err.message + '</p>' +
+                        '<p>Make sure you are logged in to ERPNext.</p></div>';
+                });
+        };
+    </script>
+</body>
+</html>

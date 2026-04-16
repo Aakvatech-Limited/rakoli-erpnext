@@ -1,0 +1,166 @@
+{
+ "actions": [],
+ "autoname": "RAK-LOG-.YYYY.-.#####",
+ "allow_rename": 0,
+ "creation": "2026-04-14 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "api_endpoint",
+  "http_method",
+  "status_code",
+  "column_break_1",
+  "employee",
+  "rakoli_loan",
+  "section_break_request",
+  "request_data",
+  "column_break_2",
+  "response_data",
+  "section_break_audit",
+  "request_by",
+  "request_ip",
+  "column_break_3",
+  "request_timestamp",
+  "section_break_error",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "api_endpoint",
+   "fieldtype": "Data",
+   "label": "API Endpoint",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "http_method",
+   "fieldtype": "Select",
+   "label": "HTTP Method",
+   "options": "\nGET\nPOST",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status_code",
+   "fieldtype": "Int",
+   "label": "HTTP Status Code",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "rakoli_loan",
+   "fieldtype": "Link",
+   "label": "Rakoli Loan",
+   "options": "Rakoli Loan",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_request",
+   "fieldtype": "Section Break",
+   "label": "Request / Response",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "request_data",
+   "fieldtype": "Code",
+   "label": "Request Data",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "response_data",
+   "fieldtype": "Code",
+   "label": "Response Data",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_audit",
+   "fieldtype": "Section Break",
+   "label": "Audit Details"
+  },
+  {
+   "fieldname": "request_by",
+   "fieldtype": "Data",
+   "label": "Request By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_ip",
+   "fieldtype": "Data",
+   "label": "Request IP",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "request_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Request Timestamp",
+   "read_only": 1,
+   "default": "Now",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_break_error",
+   "fieldtype": "Section Break",
+   "label": "Error Details",
+   "collapsible": 1,
+   "depends_on": "error_message"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Small Text",
+   "label": "Error Message",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-04-14 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Rakoli Intergration",
+ "name": "Rakoli API Log",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Loan Manager"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
