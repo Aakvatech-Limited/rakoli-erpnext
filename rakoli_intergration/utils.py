@@ -4,17 +4,6 @@ import frappe
 from frappe.utils import now_datetime, cint, flt
 
 
-def get_rakoli_settings():
-	"""Returns the Rakoli Settings singleton. Throws if not configured."""
-	settings = frappe.get_single("Rakoli Settings")
-	if not settings.default_company:
-		frappe.throw(
-			"Rakoli Integration is not configured. Please set up Rakoli Settings.",
-			title="Rakoli Not Configured",
-		)
-	return settings
-
-
 def get_salary_data(employee_id):
 	"""Returns (gross_salary, net_salary) for an employee.
 
@@ -58,13 +47,6 @@ def log_api_call(
 	error_message=None,
 ):
 	"""Creates a Rakoli API Log entry for audit purposes."""
-	try:
-		settings = frappe.get_single("Rakoli Settings")
-		if not cint(settings.enable_logging):
-			return
-	except Exception:
-		pass
-
 	try:
 		log = frappe.new_doc("Rakoli API Log")
 		log.api_endpoint = api_endpoint
