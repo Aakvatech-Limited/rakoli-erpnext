@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "rakoli_loan_id",
   "employee",
   "employee_name",
   "loan_amount",
@@ -20,6 +21,14 @@
   "previous_bank_account"
  ],
  "fields": [
+  {
+   "fieldname": "rakoli_loan_id",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Rakoli Loan ID",
+   "no_copy": 1,
+   "unique": 1
+  },
   {
    "fieldname": "employee",
    "fieldtype": "Link",
