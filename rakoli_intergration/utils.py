@@ -1,7 +1,7 @@
 import json
 
 import frappe
-from frappe.utils import now_datetime, cint, flt
+from frappe.utils import cint, flt, now_datetime
 
 
 def get_salary_data(employee_id):
