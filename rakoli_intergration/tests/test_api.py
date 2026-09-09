@@ -8,7 +8,12 @@ from rakoli_intergration.api import (
 	update_employee_bank,
 	update_loan_status,
 )
-from rakoli_intergration.tests.utils import create_employee, create_loan, create_unprivileged_user
+from rakoli_intergration.tests.utils import (
+	create_employee,
+	create_loan,
+	create_loan_only_user,
+	create_unprivileged_user,
+)
 
 
 class RakoliApiTestCase(IntegrationTestCase):
@@ -88,6 +93,17 @@ class TestUpdateEmployeeBank(RakoliApiTestCase):
 			"0000000000",
 		)
 
+	def test_denial_is_written_to_the_api_log(self):
+		employee = create_employee()
+		user = create_unprivileged_user()
+		frappe.set_user(user.name)
+		with self.assertRaises(frappe.PermissionError):
+			get_employee(employee.name)
+		frappe.set_user("Administrator")
+		log = frappe.get_last_doc("Rakoli API Log", filters={"api_endpoint": "get_employee"})
+		self.assertEqual(log.status_code, 403)
+		self.assertIn("Not permitted", log.error_message)
+
 
 class TestRecordLoan(RakoliApiTestCase):
 	def test_missing_fields_returns_400(self):
@@ -115,10 +131,20 @@ class TestRecordLoan(RakoliApiTestCase):
 		self.assertNotEqual(first["data"]["erpnext_loan_id"], second["data"]["erpnext_loan_id"])
 		self.assertEqual(frappe.db.count("Rakoli Loan", {"employee": employee.name}), 2)
 
+	def test_replay_finds_a_loan_recorded_before_the_external_id_existed(self):
+		employee = create_employee()
+		legacy = create_loan(employee.name, loan_amount=100000)
+		response = record_loan(employee.name, 400000, rakoli_loan_id=legacy.name)
+		self.assertEqual(response["data"]["erpnext_loan_id"], legacy.name)
+		self.assertEqual(frappe.db.count("Rakoli Loan", {"employee": employee.name}), 1)
+		legacy.reload()
+		self.assertEqual(legacy.loan_amount, 400000)
+
 	def test_denied_for_user_who_cannot_read_employee_bank_details(self):
 		employee = create_employee()
-		user = create_unprivileged_user()
+		user = create_loan_only_user()
 		frappe.set_user(user.name)
+		self.assertTrue(frappe.has_permission("Rakoli Loan", "create"))
 		with self.assertRaises(frappe.PermissionError):
 			record_loan(employee.name, 750000)
 
