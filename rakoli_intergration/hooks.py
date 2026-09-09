@@ -4,6 +4,7 @@ app_publisher = "Emanuel Fidelis"
 app_description = "Rakoli Integration"
 app_email = "emanuelkagombora28@gmail.com"
 app_license = "mit"
+required_apps = ["erpnext", "hrms"]
 
 # Apps
 # ------------------
