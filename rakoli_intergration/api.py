@@ -16,7 +16,7 @@ from rakoli_intergration.utils import (
 # Swagger / OpenAPI Spec Endpoint
 # URL: /api/method/rakoli_intergration.api.get_openapi_spec
 # ---------------------------------------------------------------------------
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_openapi_spec():
 	"""Serve the OpenAPI 3.0 JSON spec for the Rakoli integration API."""
 	spec_path = os.path.join(os.path.dirname(__file__), "www", "rakoli_api.json")
@@ -30,6 +30,8 @@ def get_openapi_spec():
 @frappe.whitelist()
 def get_employee(employee_number=None):
 	"""Fetch employee employment and payroll data for Rakoli loan eligibility."""
+	frappe.has_permission("Employee", "read", throw=True)
+
 	if not employee_number:
 		response = make_error_response(400, "MISSING_FIELD", "employee_number is required", "employee_number")
 		log_api_call("get_employee", "GET", {"employee_number": employee_number}, response, 400)
@@ -126,6 +128,8 @@ def update_employee_bank(
 	reason=None,
 ):
 	"""Update employee bank account in ERPNext (salary rerouting to RMFB)."""
+	frappe.has_permission("Employee", "write", throw=True)
+
 	request_data = {
 		"employee_number": employee_number,
 		"bank_name": bank_name,
@@ -213,6 +217,10 @@ def record_loan(
 	loan_status: str | None = None,
 ):
 	"""Record an RMFB-approved loan in ERPNext for employer-side record-keeping."""
+	frappe.has_permission("Rakoli Loan", "create", throw=True)
+	# The loan snapshots the employee's bank details, so it needs Employee read too.
+	frappe.has_permission("Employee", "read", throw=True)
+
 	allowed_statuses = ("received", "approved", "active", "paid")
 	request_data = {
 		"employee_number": employee_number,
@@ -305,7 +313,7 @@ def record_loan(
 			)
 			loan_doc.previous_bank_name = bank_info.bank_name if bank_info else ""
 			loan_doc.previous_bank_account = bank_info.bank_ac_no if bank_info else ""
-		loan_doc.save(ignore_permissions=True)
+		loan_doc.save()
 		frappe.db.commit()
 
 		data = {
@@ -342,7 +350,6 @@ def record_loan(
 		loan.repayment_start_date = repayment_start_date
 		loan.previous_bank_name = bank_info.bank_name if bank_info else ""
 		loan.previous_bank_account = bank_info.bank_ac_no if bank_info else ""
-		loan.flags.ignore_permissions = True
 		loan.insert()
 
 		frappe.db.commit()
@@ -389,6 +396,8 @@ def record_loan(
 @frappe.whitelist()
 def check_loan_status(employee_number: str | None = None):
 	"""Check if an employee has an active Rakoli loan (prevents duplicate loans)."""
+	frappe.has_permission("Rakoli Loan", "read", throw=True)
+
 	if not employee_number:
 		response = make_error_response(400, "MISSING_FIELD", "employee_number is required", "employee_number")
 		log_api_call("check_loan_status", "GET", {"employee_number": employee_number}, response, 400)
@@ -481,6 +490,8 @@ def update_loan_status(
 	note: str | None = None,
 ):
 	"""Update the Rakoli loan status as it progresses through its lifecycle."""
+	frappe.has_permission("Rakoli Loan", "write", throw=True)
+
 	request_data = {
 		"rakoli_loan_id": rakoli_loan_id,
 		"loan_status": loan_status,
@@ -537,7 +548,7 @@ def update_loan_status(
 	loan_doc.loan_status = loan_status
 	if loan_status == "approved" and not loan_doc.approved_at:
 		loan_doc.approved_at = updated_at or str(now_datetime())
-	loan_doc.save(ignore_permissions=True)
+	loan_doc.save()
 
 	comment_text = (
 		f"Rakoli loan status changed from '{previous_status}' to '{loan_status}'"
