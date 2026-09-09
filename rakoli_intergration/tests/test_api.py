@@ -108,12 +108,47 @@ class TestRecordLoan(RakoliApiTestCase):
 		self.assertEqual(loan.loan_status, "received")
 		self.assertEqual(loan.previous_bank_account, "0000000000")
 
+	def test_many_loans_may_omit_the_external_id(self):
+		employee = create_employee()
+		first = record_loan(employee.name, 100000)
+		second = record_loan(employee.name, 200000)
+		self.assertNotEqual(first["data"]["erpnext_loan_id"], second["data"]["erpnext_loan_id"])
+		self.assertEqual(frappe.db.count("Rakoli Loan", {"employee": employee.name}), 2)
+
 	def test_denied_for_user_who_cannot_read_employee_bank_details(self):
 		employee = create_employee()
 		user = create_unprivileged_user()
 		frappe.set_user(user.name)
 		with self.assertRaises(frappe.PermissionError):
 			record_loan(employee.name, 750000)
+
+	def test_repeated_call_with_same_rakoli_loan_id_is_idempotent(self):
+		employee = create_employee()
+		first = record_loan(employee.name, 750000, rakoli_loan_id="RKL-EXT-001")
+		second = record_loan(employee.name, 750000, rakoli_loan_id="RKL-EXT-001")
+		self.assertEqual(
+			first["data"]["erpnext_loan_id"],
+			second["data"]["erpnext_loan_id"],
+		)
+		self.assertEqual(frappe.db.count("Rakoli Loan", {"employee": employee.name}), 1)
+
+	def test_external_id_is_stored_and_echoed_back(self):
+		employee = create_employee()
+		response = record_loan(employee.name, 500000, rakoli_loan_id="RKL-EXT-777")
+		self.assertEqual(response["data"]["rakoli_loan_id"], "RKL-EXT-777")
+		self.assertNotEqual(response["data"]["erpnext_loan_id"], "RKL-EXT-777")
+		self.assertEqual(
+			frappe.db.get_value("Rakoli Loan", response["data"]["erpnext_loan_id"], "rakoli_loan_id"),
+			"RKL-EXT-777",
+		)
+
+	def test_second_call_updates_the_existing_loan(self):
+		employee = create_employee()
+		record_loan(employee.name, 500000, rakoli_loan_id="RKL-EXT-778")
+		second = record_loan(employee.name, 900000, rakoli_loan_id="RKL-EXT-778", loan_status="active")
+		loan = frappe.get_doc("Rakoli Loan", second["data"]["erpnext_loan_id"])
+		self.assertEqual(loan.loan_amount, 900000)
+		self.assertEqual(loan.loan_status, "active")
 
 	def test_denied_for_user_without_loan_create_permission(self):
 		employee = create_employee()
@@ -160,6 +195,13 @@ class TestUpdateLoanStatus(RakoliApiTestCase):
 	def test_unknown_loan_returns_404(self):
 		response = update_loan_status("NO-SUCH-LOAN", "active")
 		self.assertEqual(response["error_code"], "LOAN_NOT_FOUND")
+
+	def test_resolves_loan_by_external_rakoli_id(self):
+		employee = create_employee()
+		created = record_loan(employee.name, 500000, rakoli_loan_id="RKL-EXT-900")
+		response = update_loan_status("RKL-EXT-900", "active")
+		self.assertEqual(response["data"]["erpnext_loan_id"], created["data"]["erpnext_loan_id"])
+		self.assertEqual(response["data"]["rakoli_loan_id"], "RKL-EXT-900")
 
 	def test_transition_updates_status_and_adds_comment(self):
 		employee = create_employee()
