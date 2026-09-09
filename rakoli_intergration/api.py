@@ -19,12 +19,11 @@ from rakoli_intergration.utils import (
 @frappe.whitelist(allow_guest=True)
 def get_openapi_spec():
 	"""Serve the OpenAPI 3.0 JSON spec for the Rakoli integration API."""
-	spec_path = os.path.join(
-		os.path.dirname(__file__), "www", "rakoli_api.json"
-	)
+	spec_path = os.path.join(os.path.dirname(__file__), "www", "rakoli_api.json")
 	with open(spec_path) as f:
 		spec = json.load(f)
 	return spec
+
 
 # ---------------------------------------------------------------------------
 # API 1 — Fetch Employee Data
@@ -38,19 +37,34 @@ def get_employee(employee_number=None):
 
 	if not frappe.db.exists("Employee", employee_number):
 		response = make_error_response(
-			404, "EMPLOYEE_NOT_FOUND",
+			404,
+			"EMPLOYEE_NOT_FOUND",
 			f"No employee found with number {employee_number}",
 			"employee_number",
 		)
-		log_api_call("get_employee", "GET", {"employee_number": employee_number}, response, 404, employee=employee_number)
+		log_api_call(
+			"get_employee",
+			"GET",
+			{"employee_number": employee_number},
+			response,
+			404,
+			employee=employee_number,
+		)
 		return response
 
 	employee = frappe.db.get_value(
 		"Employee",
 		employee_number,
 		[
-			"name", "employee_name", "department", "company", "status",
-			"date_of_joining", "contract_end_date", "bank_name", "bank_ac_no",
+			"name",
+			"employee_name",
+			"department",
+			"company",
+			"status",
+			"date_of_joining",
+			"contract_end_date",
+			"bank_name",
+			"bank_ac_no",
 		],
 		as_dict=True,
 	)
@@ -60,12 +74,20 @@ def get_employee(employee_number=None):
 
 	if employee.status != "Active":
 		response = make_error_response(
-			422, "EMPLOYEE_NOT_ACTIVE",
+			422,
+			"EMPLOYEE_NOT_ACTIVE",
 			f"Employee {employee_number} has status '{employee.status}'. Only Active employees are eligible.",
 			"employment_status",
 		)
 		response["employment_status"] = employee.status
-		log_api_call("get_employee", "GET", {"employee_number": employee_number}, response, 422, employee=employee_number)
+		log_api_call(
+			"get_employee",
+			"GET",
+			{"employee_number": employee_number},
+			response,
+			422,
+			employee=employee_number,
+		)
 		return response
 
 	gross_salary, net_salary = get_salary_data(employee_number)
@@ -86,8 +108,11 @@ def get_employee(employee_number=None):
 	}
 
 	response = make_success_response(data)
-	log_api_call("get_employee", "GET", {"employee_number": employee_number}, response, 200, employee=employee_number)
+	log_api_call(
+		"get_employee", "GET", {"employee_number": employee_number}, response, 200, employee=employee_number
+	)
 	return response
+
 
 # ---------------------------------------------------------------------------
 # API 2 — Update Employee Bank Account
@@ -113,7 +138,8 @@ def update_employee_bank(
 	# Validate required fields
 	if not employee_number or not bank_name or not bank_account_number:
 		response = make_error_response(
-			400, "MISSING_FIELDS",
+			400,
+			"MISSING_FIELDS",
 			"employee_number, bank_name, and bank_account_number are required",
 		)
 		log_api_call("update_employee_bank", "POST", request_data, response, 400)
@@ -121,7 +147,8 @@ def update_employee_bank(
 
 	if not frappe.db.exists("Employee", employee_number):
 		response = make_error_response(
-			404, "EMPLOYEE_NOT_FOUND",
+			404,
+			"EMPLOYEE_NOT_FOUND",
 			f"No employee found with number {employee_number}",
 			"employee_number",
 		)
@@ -132,7 +159,8 @@ def update_employee_bank(
 	status = frappe.db.get_value("Employee", employee_number, "status")
 	if status != "Active":
 		response = make_error_response(
-			422, "EMPLOYEE_NOT_ACTIVE",
+			422,
+			"EMPLOYEE_NOT_ACTIVE",
 			f"Employee {employee_number} has status '{status}'. Cannot update bank account.",
 			"employment_status",
 		)
@@ -140,17 +168,19 @@ def update_employee_bank(
 		return response
 
 	# Read current bank details before updating
-	current = frappe.db.get_value(
-		"Employee", employee_number, ["bank_name", "bank_ac_no"], as_dict=True
-	)
+	current = frappe.db.get_value("Employee", employee_number, ["bank_name", "bank_ac_no"], as_dict=True)
 	previous_bank_name = current.bank_name or ""
 	previous_bank_account = current.bank_ac_no or ""
 
 	# Update bank details
-	frappe.db.set_value("Employee", employee_number, {
-		"bank_name": bank_name,
-		"bank_ac_no": bank_account_number,
-	})
+	frappe.db.set_value(
+		"Employee",
+		employee_number,
+		{
+			"bank_name": bank_name,
+			"bank_ac_no": bank_account_number,
+		},
+	)
 
 	data = {
 		"employee_number": employee_number,
@@ -199,7 +229,8 @@ def record_loan(
 	# Validate required fields
 	if not employee_number or not loan_amount:
 		response = make_error_response(
-			400, "MISSING_FIELDS",
+			400,
+			"MISSING_FIELDS",
 			"employee_number and loan_amount are required",
 		)
 		log_api_call("record_loan", "POST", request_data, response, 400)
@@ -207,7 +238,8 @@ def record_loan(
 
 	if loan_status and loan_status not in allowed_statuses:
 		response = make_error_response(
-			422, "INVALID_STATUS",
+			422,
+			"INVALID_STATUS",
 			f"loan_status must be one of: {', '.join(allowed_statuses)}",
 			"loan_status",
 		)
@@ -216,7 +248,8 @@ def record_loan(
 
 	if not frappe.db.exists("Employee", employee_number):
 		response = make_error_response(
-			404, "EMPLOYEE_NOT_FOUND",
+			404,
+			"EMPLOYEE_NOT_FOUND",
 			f"No employee found with number {employee_number}",
 			"employee_number",
 		)
@@ -226,7 +259,8 @@ def record_loan(
 	emp_status = frappe.db.get_value("Employee", employee_number, "status")
 	if emp_status != "Active":
 		response = make_error_response(
-			422, "EMPLOYEE_NOT_ACTIVE",
+			422,
+			"EMPLOYEE_NOT_ACTIVE",
 			f"Employee {employee_number} has status '{emp_status}'.",
 			"employee_number",
 		)
@@ -264,13 +298,7 @@ def record_loan(
 			"repayment_start_date": repayment_start_date,
 		}
 		loan_doc = frappe.get_doc("Rakoli Loan", existing_loan.name)
-		loan_doc.update(
-			{
-				key: value
-				for key, value in updates.items()
-				if value is not None
-			}
-		)
+		loan_doc.update({key: value for key, value in updates.items() if value is not None})
 		if not loan_doc.previous_bank_name:
 			bank_info = frappe.db.get_value(
 				"Employee", employee_number, ["bank_name", "bank_ac_no"], as_dict=True
@@ -289,8 +317,13 @@ def record_loan(
 		}
 		response = make_success_response(data)
 		log_api_call(
-			"record_loan", "POST", request_data, response, 200,
-			employee=employee_number, rakoli_loan=existing_loan.name,
+			"record_loan",
+			"POST",
+			request_data,
+			response,
+			200,
+			employee=employee_number,
+			rakoli_loan=existing_loan.name,
 		)
 		return response
 
@@ -323,8 +356,13 @@ def record_loan(
 		response = make_success_response(data)
 		frappe.local.response["http_status_code"] = 201
 		log_api_call(
-			"record_loan", "POST", request_data, response, 201,
-			employee=employee_number, rakoli_loan=loan.name,
+			"record_loan",
+			"POST",
+			request_data,
+			response,
+			201,
+			employee=employee_number,
+			rakoli_loan=loan.name,
 		)
 		return response
 
@@ -333,7 +371,11 @@ def record_loan(
 		frappe.log_error(title="Rakoli Record Loan Error")
 		response = make_error_response(500, "LOAN_CREATION_FAILED", str(e))
 		log_api_call(
-			"record_loan", "POST", request_data, response, 500,
+			"record_loan",
+			"POST",
+			request_data,
+			response,
+			500,
 			employee=employee_number,
 			error_message=str(e),
 		)
@@ -354,7 +396,8 @@ def check_loan_status(employee_number: str | None = None):
 
 	if not frappe.db.exists("Employee", employee_number):
 		response = make_error_response(
-			404, "EMPLOYEE_NOT_FOUND",
+			404,
+			"EMPLOYEE_NOT_FOUND",
 			f"No employee found with number {employee_number}",
 			"employee_number",
 		)
@@ -382,17 +425,25 @@ def check_loan_status(employee_number: str | None = None):
 	if active_loans:
 		loans_data = []
 		for loan in active_loans:
-			loans_data.append({
-				"rakoli_loan_id": loan.name,
-				"erpnext_loan_id": loan.name,
-				"loan_amount": flt(loan.loan_amount),
-				"instalment_amount": flt(loan.instalment_amount) if loan.instalment_amount is not None else None,
-				"instalment_frequency": loan.instalment_frequency,
-				"total_instalments": cint(loan.total_instalments) if loan.total_instalments is not None else None,
-				"loan_status": loan.loan_status,
-				"approved_at": str(loan.approved_at) if loan.approved_at else None,
-				"repayment_start_date": str(loan.repayment_start_date) if loan.repayment_start_date else None,
-			})
+			loans_data.append(
+				{
+					"rakoli_loan_id": loan.name,
+					"erpnext_loan_id": loan.name,
+					"loan_amount": flt(loan.loan_amount),
+					"instalment_amount": flt(loan.instalment_amount)
+					if loan.instalment_amount is not None
+					else None,
+					"instalment_frequency": loan.instalment_frequency,
+					"total_instalments": cint(loan.total_instalments)
+					if loan.total_instalments is not None
+					else None,
+					"loan_status": loan.loan_status,
+					"approved_at": str(loan.approved_at) if loan.approved_at else None,
+					"repayment_start_date": str(loan.repayment_start_date)
+					if loan.repayment_start_date
+					else None,
+				}
+			)
 
 		data = {
 			"employee_number": employee_number,
@@ -406,7 +457,14 @@ def check_loan_status(employee_number: str | None = None):
 		}
 
 	response = make_success_response(data)
-	log_api_call("check_loan_status", "GET", {"employee_number": employee_number}, response, 200, employee=employee_number)
+	log_api_call(
+		"check_loan_status",
+		"GET",
+		{"employee_number": employee_number},
+		response,
+		200,
+		employee=employee_number,
+	)
 	return response
 
 
@@ -435,7 +493,8 @@ def update_loan_status(
 
 	if not rakoli_loan_id or not loan_status:
 		response = make_error_response(
-			400, "MISSING_FIELDS",
+			400,
+			"MISSING_FIELDS",
 			"rakoli_loan_id and loan_status are required",
 		)
 		log_api_call("update_loan_status", "POST", request_data, response, 400)
@@ -443,7 +502,8 @@ def update_loan_status(
 
 	if loan_status not in ALLOWED_STATUSES:
 		response = make_error_response(
-			422, "INVALID_STATUS",
+			422,
+			"INVALID_STATUS",
 			f"loan_status must be one of: {', '.join(ALLOWED_STATUSES)}",
 			"loan_status",
 		)
@@ -463,7 +523,8 @@ def update_loan_status(
 
 	if not loan_data:
 		response = make_error_response(
-			404, "LOAN_NOT_FOUND",
+			404,
+			"LOAN_NOT_FOUND",
 			f"No Rakoli loan found with ID {rakoli_loan_id}",
 			"rakoli_loan_id",
 		)
@@ -499,7 +560,12 @@ def update_loan_status(
 
 	response = make_success_response(data)
 	log_api_call(
-		"update_loan_status", "POST", request_data, response, 200,
-		employee=loan_data.employee, rakoli_loan=loan_data.name,
+		"update_loan_status",
+		"POST",
+		request_data,
+		response,
+		200,
+		employee=loan_data.employee,
+		rakoli_loan=loan_data.name,
 	)
 	return response
