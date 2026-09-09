@@ -279,15 +279,8 @@ def record_loan(
 	existing_loan = (
 		frappe.db.get_value(
 			"Rakoli Loan",
-			rakoli_loan_id,
-			[
-				"name",
-				"employee",
-				"loan_amount",
-				"loan_status",
-				"previous_bank_name",
-				"previous_bank_account",
-			],
+			{"rakoli_loan_id": rakoli_loan_id},
+			["name", "loan_status", "previous_bank_name"],
 			as_dict=True,
 		)
 		if rakoli_loan_id
@@ -317,7 +310,7 @@ def record_loan(
 		frappe.db.commit()
 
 		data = {
-			"rakoli_loan_id": existing_loan.name,
+			"rakoli_loan_id": rakoli_loan_id,
 			"erpnext_loan_id": existing_loan.name,
 			"employee_number": employee_number,
 			"recorded_at": str(now_datetime()),
@@ -340,6 +333,7 @@ def record_loan(
 		bank_info = frappe.db.get_value(
 			"Employee", employee_number, ["bank_name", "bank_ac_no"], as_dict=True
 		)
+		loan.rakoli_loan_id = rakoli_loan_id
 		loan.employee = employee_number
 		loan.loan_amount = flt(loan_amount)
 		loan.instalment_amount = flt(instalment_amount) if instalment_amount is not None else None
@@ -355,7 +349,7 @@ def record_loan(
 		frappe.db.commit()
 
 		data = {
-			"rakoli_loan_id": loan.name,
+			"rakoli_loan_id": rakoli_loan_id or loan.name,
 			"erpnext_loan_id": loan.name,
 			"employee_number": employee_number,
 			"recorded_at": str(now_datetime()),
@@ -421,6 +415,7 @@ def check_loan_status(employee_number: str | None = None):
 		},
 		fields=[
 			"name",
+			"rakoli_loan_id",
 			"loan_amount",
 			"instalment_amount",
 			"instalment_frequency",
@@ -436,7 +431,7 @@ def check_loan_status(employee_number: str | None = None):
 		for loan in active_loans:
 			loans_data.append(
 				{
-					"rakoli_loan_id": loan.name,
+					"rakoli_loan_id": loan.rakoli_loan_id or loan.name,
 					"erpnext_loan_id": loan.name,
 					"loan_amount": flt(loan.loan_amount),
 					"instalment_amount": flt(loan.instalment_amount)
@@ -521,16 +516,10 @@ def update_loan_status(
 		log_api_call("update_loan_status", "POST", request_data, response, 422)
 		return response
 
-	loan_data = (
-		frappe.db.get_value(
-			"Rakoli Loan",
-			rakoli_loan_id,
-			["name", "employee", "loan_status"],
-			as_dict=True,
-		)
-		if rakoli_loan_id
-		else None
-	)
+	fields = ["name", "employee", "loan_status"]
+	loan_data = frappe.db.get_value(
+		"Rakoli Loan", {"rakoli_loan_id": rakoli_loan_id}, fields, as_dict=True
+	) or frappe.db.get_value("Rakoli Loan", rakoli_loan_id, fields, as_dict=True)
 
 	if not loan_data:
 		response = make_error_response(
@@ -561,7 +550,7 @@ def update_loan_status(
 	frappe.db.commit()
 
 	data = {
-		"rakoli_loan_id": loan_data.name,
+		"rakoli_loan_id": rakoli_loan_id,
 		"erpnext_loan_id": loan_data.name,
 		"employee_number": loan_data.employee,
 		"previous_status": previous_status,
