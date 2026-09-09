@@ -28,7 +28,7 @@ def get_openapi_spec():
 # ---------------------------------------------------------------------------
 # API 1 — Fetch Employee Data
 @frappe.whitelist()
-def get_employee(employee_number=None):
+def get_employee(employee_number: str | None = None):
 	"""Fetch employee employment and payroll data for Rakoli loan eligibility."""
 	if not employee_number:
 		response = make_error_response(400, "MISSING_FIELD", "employee_number is required", "employee_number")
@@ -118,12 +118,12 @@ def get_employee(employee_number=None):
 # API 2 — Update Employee Bank Account
 @frappe.whitelist()
 def update_employee_bank(
-	employee_number=None,
-	bank_name=None,
-	bank_account_number=None,
-	updated_at=None,
-	updated_by=None,
-	reason=None,
+	employee_number: str | None = None,
+	bank_name: str | None = None,
+	bank_account_number: str | None = None,
+	updated_at: str | None = None,
+	updated_by: str | None = None,
+	reason: str | None = None,
 ):
 	"""Update employee bank account in ERPNext (salary rerouting to RMFB)."""
 	request_data = {
