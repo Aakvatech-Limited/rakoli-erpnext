@@ -6,7 +6,7 @@ from frappe.utils import add_days, nowdate
 TEST_COMPANY = "_Test Company"
 
 
-def create_employee(**overrides) -> frappe.Document:
+def create_employee(**overrides) -> "frappe.Document":
 	"""Insert an Employee with Rakoli-relevant payroll and bank fields set."""
 	values = {
 		"doctype": "Employee",
@@ -26,7 +26,7 @@ def create_employee(**overrides) -> frappe.Document:
 	return employee
 
 
-def create_loan(employee: str, **overrides) -> frappe.Document:
+def create_loan(employee: str, **overrides) -> "frappe.Document":
 	"""Insert a Rakoli Loan for the given employee."""
 	values = {
 		"doctype": "Rakoli Loan",
@@ -40,7 +40,7 @@ def create_loan(employee: str, **overrides) -> frappe.Document:
 	return loan
 
 
-def create_unprivileged_user(email: str = "rakoli-outsider@example.com") -> frappe.Document:
+def create_unprivileged_user(email: str = "rakoli-outsider@example.com") -> "frappe.Document":
 	"""Insert an enabled User holding no roles beyond the implicit "All" role."""
 	if frappe.db.exists("User", email):
 		return frappe.get_doc("User", email)
@@ -56,7 +56,7 @@ def create_unprivileged_user(email: str = "rakoli-outsider@example.com") -> frap
 	return user
 
 
-def create_loan_only_user(email: str = "rakoli-loan-clerk@example.com") -> frappe.Document:
+def create_loan_only_user(email: str = "rakoli-loan-clerk@example.com") -> "frappe.Document":
 	"""Inserts a User who may create and write Rakoli Loan but cannot read Employee."""
 	role = "Rakoli Loan Clerk"
 	if not frappe.db.exists("Role", role):
