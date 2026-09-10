@@ -9,6 +9,7 @@ from rakoli_intergration.utils import (
 	log_api_call,
 	make_error_response,
 	make_success_response,
+	require_permission,
 )
 
 
@@ -25,12 +26,22 @@ def get_openapi_spec():
 	return spec
 
 
+def find_loan(rakoli_loan_id: str | None, fields: list[str]):
+	"""Resolves a loan by its Rakoli id, then by its ERPNext name for older records."""
+	if not rakoli_loan_id:
+		return None
+
+	return frappe.db.get_value(
+		"Rakoli Loan", {"rakoli_loan_id": rakoli_loan_id}, fields, as_dict=True
+	) or frappe.db.get_value("Rakoli Loan", rakoli_loan_id, fields, as_dict=True)
+
+
 # ---------------------------------------------------------------------------
 # API 1 — Fetch Employee Data
 @frappe.whitelist()
 def get_employee(employee_number: str | None = None):
 	"""Fetch employee employment and payroll data for Rakoli loan eligibility."""
-	frappe.has_permission("Employee", "read", throw=True)
+	require_permission("Employee", "read", "get_employee", "GET", {"employee_number": employee_number})
 
 	if not employee_number:
 		response = make_error_response(400, "MISSING_FIELD", "employee_number is required", "employee_number")
@@ -128,8 +139,6 @@ def update_employee_bank(
 	reason: str | None = None,
 ):
 	"""Update employee bank account in ERPNext (salary rerouting to RMFB)."""
-	frappe.has_permission("Employee", "write", throw=True)
-
 	request_data = {
 		"employee_number": employee_number,
 		"bank_name": bank_name,
@@ -138,6 +147,7 @@ def update_employee_bank(
 		"updated_by": updated_by,
 		"reason": reason,
 	}
+	require_permission("Employee", "write", "update_employee_bank", "POST", request_data)
 
 	# Validate required fields
 	if not employee_number or not bank_name or not bank_account_number:
@@ -217,10 +227,6 @@ def record_loan(
 	loan_status: str | None = None,
 ):
 	"""Record an RMFB-approved loan in ERPNext for employer-side record-keeping."""
-	frappe.has_permission("Rakoli Loan", "create", throw=True)
-	# The loan snapshots the employee's bank details, so it needs Employee read too.
-	frappe.has_permission("Employee", "read", throw=True)
-
 	allowed_statuses = ("received", "approved", "active", "paid")
 	request_data = {
 		"employee_number": employee_number,
@@ -233,6 +239,9 @@ def record_loan(
 		"total_instalments": total_instalments,
 		"loan_status": loan_status,
 	}
+	require_permission("Rakoli Loan", "create", "record_loan", "POST", request_data)
+	# The loan snapshots the employee's bank details, so it needs Employee read too.
+	require_permission("Employee", "read", "record_loan", "POST", request_data)
 
 	# Validate required fields
 	if not employee_number or not loan_amount:
@@ -276,18 +285,10 @@ def record_loan(
 		return response
 
 	# If a Rakoli Loan ID is provided, update that existing record instead of creating a new one.
-	existing_loan = (
-		frappe.db.get_value(
-			"Rakoli Loan",
-			{"rakoli_loan_id": rakoli_loan_id},
-			["name", "loan_status", "previous_bank_name"],
-			as_dict=True,
-		)
-		if rakoli_loan_id
-		else None
-	)
+	existing_loan = find_loan(rakoli_loan_id, ["name", "loan_status", "previous_bank_name"])
 
 	if existing_loan:
+		require_permission("Rakoli Loan", "write", "record_loan", "POST", request_data)
 		updates = {
 			"employee": employee_number,
 			"loan_amount": flt(loan_amount),
@@ -367,6 +368,28 @@ def record_loan(
 		)
 		return response
 
+	except frappe.exceptions.DuplicateEntryError:
+		frappe.db.rollback()
+		winner = find_loan(rakoli_loan_id, ["name"])
+		data = {
+			"rakoli_loan_id": rakoli_loan_id,
+			"erpnext_loan_id": winner.name,
+			"employee_number": employee_number,
+			"recorded_at": str(now_datetime()),
+			"note": "Existing record updated (idempotent)",
+		}
+		response = make_success_response(data)
+		log_api_call(
+			"record_loan",
+			"POST",
+			request_data,
+			response,
+			200,
+			employee=employee_number,
+			rakoli_loan=winner.name,
+		)
+		return response
+
 	except Exception as e:
 		frappe.db.rollback()
 		frappe.log_error(title="Rakoli Record Loan Error")
@@ -390,7 +413,9 @@ def record_loan(
 @frappe.whitelist()
 def check_loan_status(employee_number: str | None = None):
 	"""Check if an employee has an active Rakoli loan (prevents duplicate loans)."""
-	frappe.has_permission("Rakoli Loan", "read", throw=True)
+	require_permission(
+		"Rakoli Loan", "read", "check_loan_status", "GET", {"employee_number": employee_number}
+	)
 
 	if not employee_number:
 		response = make_error_response(400, "MISSING_FIELD", "employee_number is required", "employee_number")
@@ -485,8 +510,6 @@ def update_loan_status(
 	note: str | None = None,
 ):
 	"""Update the Rakoli loan status as it progresses through its lifecycle."""
-	frappe.has_permission("Rakoli Loan", "write", throw=True)
-
 	request_data = {
 		"rakoli_loan_id": rakoli_loan_id,
 		"loan_status": loan_status,
@@ -494,6 +517,7 @@ def update_loan_status(
 		"updated_by": updated_by,
 		"note": note,
 	}
+	require_permission("Rakoli Loan", "write", "update_loan_status", "POST", request_data)
 
 	ALLOWED_STATUSES = ("received", "approved", "active", "paid")
 
@@ -516,10 +540,7 @@ def update_loan_status(
 		log_api_call("update_loan_status", "POST", request_data, response, 422)
 		return response
 
-	fields = ["name", "employee", "loan_status"]
-	loan_data = frappe.db.get_value(
-		"Rakoli Loan", {"rakoli_loan_id": rakoli_loan_id}, fields, as_dict=True
-	) or frappe.db.get_value("Rakoli Loan", rakoli_loan_id, fields, as_dict=True)
+	loan_data = find_loan(rakoli_loan_id, ["name", "employee", "loan_status"])
 
 	if not loan_data:
 		response = make_error_response(

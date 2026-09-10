@@ -92,3 +92,21 @@ def make_success_response(data):
 		"data": data,
 		"timestamp": str(now_datetime()),
 	}
+
+
+def require_permission(doctype, ptype, endpoint, http_method, request_data=None, **log_context):
+	"""Logs and raises when the session may not perform ptype on doctype."""
+	if frappe.has_permission(doctype, ptype):
+		return
+
+	message = f"Not permitted to {ptype} {doctype}"
+	log_api_call(
+		endpoint,
+		http_method,
+		request_data,
+		{"success": False, "error_code": "PERMISSION_DENIED"},
+		403,
+		error_message=message,
+		**log_context,
+	)
+	frappe.throw(message, frappe.PermissionError)

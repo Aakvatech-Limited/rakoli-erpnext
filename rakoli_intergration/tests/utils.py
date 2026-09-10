@@ -54,3 +54,38 @@ def create_unprivileged_user(email: str = "rakoli-outsider@example.com") -> frap
 	)
 	user.insert(ignore_permissions=True)
 	return user
+
+
+def create_loan_only_user(email: str = "rakoli-loan-clerk@example.com") -> frappe.Document:
+	"""Inserts a User who may create and write Rakoli Loan but cannot read Employee."""
+	role = "Rakoli Loan Clerk"
+	if not frappe.db.exists("Role", role):
+		frappe.get_doc({"doctype": "Role", "role_name": role}).insert(ignore_permissions=True)
+	if not frappe.db.exists("Custom DocPerm", {"parent": "Rakoli Loan", "role": role}):
+		frappe.get_doc(
+			{
+				"doctype": "Custom DocPerm",
+				"parent": "Rakoli Loan",
+				"parenttype": "DocType",
+				"parentfield": "permissions",
+				"role": role,
+				"read": 1,
+				"write": 1,
+				"create": 1,
+			}
+		).insert(ignore_permissions=True)
+		frappe.clear_cache(doctype="Rakoli Loan")
+
+	if frappe.db.exists("User", email):
+		return frappe.get_doc("User", email)
+	user = frappe.get_doc(
+		{
+			"doctype": "User",
+			"email": email,
+			"first_name": "Rakoli Clerk",
+			"send_welcome_email": 0,
+			"roles": [{"role": role}],
+		}
+	)
+	user.insert(ignore_permissions=True)
+	return user
