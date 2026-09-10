@@ -4,7 +4,7 @@ authors = [
     { name = "Emanuel Fidelis", email = "emanuelkagombora28@gmail.com"}
 ]
 description = "Rakoli Integration"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
@@ -33,7 +33,7 @@ packages = []
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
