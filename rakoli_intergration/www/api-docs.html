@@ -11,6 +11,7 @@
         body { margin: 0; background: #fafafa; }
         .topbar { display: none !important; }
     </style>
+    <script>window.frappe = { csrf_token: "{{ csrf_token }}" };</script>
 </head>
 <body>
     <div id="swagger-ui"></div>
@@ -40,13 +41,8 @@
                         showCommonExtensions: true,
                         tryItOutEnabled: true,
                         requestInterceptor: (request) => {
-                            const getCookie = (name) => {
-                                const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
-                                return match ? decodeURIComponent(match[2]) : null;
-                            };
-                            const csrf = getCookie('csrf_token');
-                            if (csrf) {
-                                request.headers['X-Frappe-CSRF-Token'] = csrf;
+                            if (window.frappe.csrf_token) {
+                                request.headers['X-Frappe-CSRF-Token'] = window.frappe.csrf_token;
                             }
                             return request;
                         }
